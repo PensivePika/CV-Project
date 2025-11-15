@@ -1,0 +1,213 @@
+\documentclass{article}
+
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2024
+
+
+% ready for submission
+\usepackage{neurips_2024}
+
+
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2024}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2024}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2024}
+
+
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage{xcolor}         % colors
+
+
+\title{Formatting Instructions For NeurIPS 2024}
+
+
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\author{%
+  David S.~Hippocampus\thanks{Use footnote for providing further information
+    about author (webpage, alternative address)---\emph{not} for acknowledging
+    funding agencies.} \\
+  Department of Computer Science\\
+  Cranberry-Lemon University\\
+  Pittsburgh, PA 15213 \\
+  \texttt{hippo@cs.cranberry-lemon.edu} \\
+  % examples of more authors
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \AND
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+  % \And
+  % Coauthor \\
+  % Affiliation \\
+  % Address \\
+  % \texttt{email} \\
+}
+
+
+\begin{document}
+
+
+\maketitle
+
+\begin{abstract}
+Computer-Using Agents (CUAs) are designed to interact with graphical user interfaces (GUIs) in a human-like manner, capable of opening applications, executing command-line instructions, and performing diverse tasks. Despite the advanced task-parsing capabilities of the underlying Large Language Models (LLMs), existing CUAs exhibit significant limitations in GUI grounding. This gap often stems from difficulties in translating the LLM's latent understanding of a task into precise, actionable outputs. Currently, most CUA models rely on pre-trained LLMs that directly output numerical coordinates for clicks or actions. We hypothesize this is suboptimal, as LLMs may lack the fine-grained numerical grounding required for precise coordinate generation.
+
+To address this limitation, we propose an alternative approach. Instead of regressing coordinates, we adapt an action expert based on diffusion, similar to those used in Vision-Language-Action (VLA) models. We posit that a diffusion-based action head can more effectively translate the LLM's innate task comprehension into robust GUI interactions, bypassing the challenges of direct coordinate output. In this paper, we test this hypothesis by training and evaluating an LLM equipped with this action head on foundational computer interaction tasks: clicking GUI elements and inputting text.
+\end{abstract}
+
+\section{Introduction}
+% Introduce CUAs in general. Why do we need them, has there been an increase in demand.
+
+% Introduce difficulties CUAs currently face
+Computer-Use Agents (CUAs) typically implement tasks in two stages:
+\begin{enumerate}
+    \item \textbf{High-level planning:} The CUA must understand the overall objective from a given prompt and decompose it into a sequence of individual steps.
+    \item \textbf{Action generation:} After outlining these general steps, the CUA must translate them into concrete, executable actions.
+\end{enumerate}
+For example, during action generation, a high-level step like "Open application xyz" must be converted into a low-level action string, such as \texttt{click(x, y)} or \texttt{type("message")}.
+
+A key failure point for GUI agents is this final action generation step, often referred to as "GUI grounding". While Vision-Language Models (VLMs) can demonstrate strong latent grounding by internally attending to the correct GUI element, they frequently fail to translate this internal understanding into precise, executable actions, such as \texttt{click(x, y)} with correct \texttt{x} and \texttt{y} coordinates \citet{HowAuxiliaryReasoning}.
+
+% Outline current approaches of CUA design
+Current state-of-the-art (SOTA) approaches for improving GUI grounding abilities primarily fall into two categories:
+\begin{enumerate}
+    \item \textbf{Visual Input Augmentation:} Modifying the input screenshot by drawing auxiliary markers, such as axes or grids, to enhance spatial reasoning and grounding \citet{HowAuxiliaryReasoning, ziyangVGAVisionGUI2024}.
+    \item \textbf{Data Scaling:} Training agents on larger and higher-quality datasets of trajectories to improve generalization and robustness \citet{gonzalez-pumariegaUnreasonableEffectivenessScaling2025, wangUITARS2TechnicalReport2025}.
+\end{enumerate}
+
+However, despite these advances, existing methods, to our knowledge, still rely on autoregressive text token generation to produce actions.
+
+This approach presents several critical issues:
+\begin{enumerate}
+    \item \textbf{Invalid Action Formulation:} Token-level generation can produce syntactically invalid or nonsensical actions that the execution environment cannot parse. Furthermore, models may hallucinate coordinates outside the screen's bounds (e.g., outputting \texttt{click(401, 200)} when the screen width is only 400).
+    \item \textbf{Poor Numerical and Spatial Understanding:} Action generation via text relies on the model's numeracy, which is often a weakness. This is critical for GUI tasks that require precise spatial and numerical reasoning (e.g., adapting to different screen resolutions or understanding that an element "above" another must have a smaller y-coordinate). % maybe use this reference to explain this point https://arxiv.org/pdf/2401.03735
+\end{enumerate}
+
+% TODO for Wilson: Introduce the idea behind using an action head for CUAs
+Recent advances in \textbf{Vision-Language-Action (VLA)} models have demonstrated the effectiveness of introducing dedicated \textit{action heads} for downstream control. In such systems, the core multimodal encoder processes visual and textual context to form a latent representation, while the action head specializes in translating this latent intent into structured, low-level actions. This separation allows VLAs to maintain semantic reasoning in the backbone while achieving precise motor or spatial control through the action-specific module while improving both training stability and generalization to unseen environments \citet{li2024cogactfoundationalvisionlanguageactionmodel}. 
+3
+Inspired by these developments, we propose extending the same principle to \textbf{Computer-Use Agents (CUAs)}. Specifically, we introduce an explicit \textit{Action Head} to decouple high-level reasoning from low-level GUI execution. Instead of relying on autoregressive token generation, the Action Head directly maps multimodal latent features to executable actions.
+
+Formally, given a latent representation $\mathbf{h} \in \mathbb{R}^d$ from the CUA backbone (e.g., a Vision–Language Transformer), the Action Head learns a parameterized mapping
+\begin{equation}
+\pi_{\theta} : \mathbb{R}^d \rightarrow \mathcal{A}, 
+\end{equation}
+where $\mathcal{A}$ denotes a continuous or structured action space (e.g., 2D coordinates, keypress distributions, or function signatures). Unlike autoregressive text decoders, $\pi_{\theta}$ operates in a continuous domain, enabling direct gradient-based optimization for spatial precision and constraint enforcement (e.g., bounding-box or screen-size clipping).
+
+
+
+% Introduction summary
+The goal of this paper is to improve GUI grounding by bridging the gap between the VLM's internal latent representation and its action output. In other words, we aim to ensure the VLM's output actions directly correspond to its internal spatial understanding of the screenshot.
+
+\subsection*{Key Contributions}
+\begin{enumerate}
+    \item We adapt and train a dedicated action head specifically for core GUI interaction tasks. Our work focuses on the most fundamental GUI actions: left and right mouse clicks, and typing.
+\end{enumerate}
+
+\section{Design} % Not sure if this is the right place, bu this little text is suppose to function as a tasks list Our key design choices are as follows:
+
+\paragraph{Training} We fine-tune an existing pre-trained model in two stages: \begin{enumerate} \item GUI grounding pre-training on the OSAtlas dataset, which contains over 2.3 million screenshots \citet{wuOSATLASFoundationAction2024}. \item An online reinforcement learning phase, using the Agent Lightning framework for agent management and rollouts \citet{luo2025agentlightningtrainai}. \end{enumerate}
+
+\paragraph{Baseline Model}
+We select Holo1.5 3b as the backbone for our training. Holo1.5 3b is the current open source model that performs the best on GUI grounding tasks while maintaining a reasonably small parameter size compared to SOTA models. For our training purposes we freeze Holo1.5 3b during GUI grounding and only adjust the parameters of our actions head.
+
+\begin{table}[htbp],
+\centering
+\caption{Model Performance Comparison}
+\label{tab:model_comparison}
+\begin{tabular}{l c l l l}
+\toprule
+\textbf{Model Name} & \textbf{Param. Size} & \textbf{Type} & \textbf{Performance} & \textbf{Additional Info} \\
+\midrule
+DeepMiner-Mano-7B & 7B & Specialized & - Osworld: 40.1\% & \\
+Seed1.5-VL & & General & & \\
+Mobile-Agent-v3 & & Specialized & & \\
+GUI-owl & 7b & Specialized & - Osworld: 23.1\% & \\
+uitars-1.5-7b & 7b & Specialized & - Osworld: 27.5 $\pm$ 2.2\% & \\
+GUI-ARP 7b & 7b & Specialized & \begin{tabular}[t]{@{}l@{}}- Screenspot-Pro: 91.8\% \\ - Screenspot-pro: 60.8\%\end{tabular} & \\
+UI-Venus 7b & 7b & Specialized & \begin{tabular}[t]{@{}l@{}}- Screenspot-v2: 94.1\% \\ - Screenspot-pro: 50.8\%\end{tabular} & Built on QWen 2.5 VL 7b \\
+Holo1.5 7b & 7b & Specialized & \begin{tabular}[t]{@{}l@{}}- Screenspot-v2: 93.3\% \\ - Screenspot-pro: 57.9\%\end{tabular} & \begin{tabular}[t]{@{}l@{}}Built on Qwen \\ Holo1.5 are natively built on high-res\end{tabular} \\
+Holo 1.5 3b & 3b & Specialized & \begin{tabular}[t]{@{}l@{}}- Screenspot-v2: 91.7\% \\ - Screenspot-pro: 51.5\%\end{tabular} & Built on Qwen \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Action Head}
+
+\paragraph{Benchmarking} We evaluate our model on three benchmarks. The first two focus on GUI grounding, while the last evaluates real-world performance. \begin{enumerate} 
+\item ScreenSpot-V2: a benchmark for single-step grounding abilities across environments (mobile, desktop, etc.) \citet{wuOSATLASFoundationAction2024}, where top models achieve ~95\% accuracy. \item ScreenSpot-Pro: a high-resolution benchmark with 23 images across 3 operating systems \citet{liScreenSpotProGUIGrounding2025a}, where top models achieve ~65\% accuracy. 
+\item OSWorld: an online environment for real-world evaluation across various operating systems \citet{OSWorld}, where top models achieve ~63\% accuracy. \end{enumerate}
+
+We adopt the evaluation methodology of \citet{gouNavigatingDigitalWorld2025}, using two settings: \begin{enumerate} \item Grounding setting: A planner model decomposes high-level instructions into simpler sub-tasks, which are fed to our model. \item Standalone setting: Our model executes instructions directly, without a planner. \end{enumerate}
+
+
+\paragraph{TODOs}
+\begin{enumerate}
+    \item Formularize inputs and outputs of architecture -> Get training data afterwards
+    \item Understand what action tokens VLMs output
+    \item Find out how to interpret continuous tokens outputted by -> absolute or relative
+    \item find out how we get the latent embeddings of VLMs
+\end{enumerate}
+
+\paragraph{Future Improvements} \begin{enumerate} \item Trajectory Selection: Generate higher quality data \citet{gonzalez-pumariegaUnreasonableEffectivenessScaling2025} \end{enumerate}
+\section{Evaluation}
+\section{Related Works}
+\section{Conclusion}
+
+\begin{ack}
+\end{ack}
+
+\medskip
+{
+\small
+\bibliographystyle{plainnat}
+\bibliography{references}
+}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\appendix
+
+\section{Appendix / supplemental material}
+
+
+Optionally include supplemental material (complete proofs, additional experiments and plots) in appendix.
+All such materials \textbf{SHOULD be included in the main submission.}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
